@@ -1,0 +1,22 @@
+
+README.TODO                            Updated: Thu Jul 25 10:33:11 2002
+------------------------------------------------------------------------
+
+1 - Comment Parsing
+
+  Note changes to "comment" parsing in the BranchType module.
+
+  This change should be pushed to all other modules that parse
+  comments. Otherwise, if text FOLLOWING a comment is not
+  correctly parsed, the entire entry may "disappear" from the
+  resulting object.
+
+  This is due to 
+  1)  entry not caught when intended
+  2)  failure to collect unexpected text in comment parsing
+      (when there are THREE leading spaces [non-comment] the
+      comment parsing will NOT collect ANY of the text).
+
+  Yuck.
+
+------------------------------------------------------------------------

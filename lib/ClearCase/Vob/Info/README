@@ -1,0 +1,251 @@
+
+UXSCM cleartool/multitool command output parser classes.
+
+    ClearCase::Vob::Info
+    ClearCase::View::Info
+    MultiSite::Vob::Info
+
+________________________________________________________________________
+
+Output from the following cleartool/multitool (versions 4.2 to 6.0)
+subcommands is recognized and automatically parsed into unique objects. 
+                                                              works w/
+ cleartool commands (complete list of parsed commands)       multitool?
+ ----------------------------------------------------------  ----------
+ ct describe -l brtype:$branchname                              yes
+ ct describe [-l] hlink:Type@LinkID[@/vobTag[/subdir/path]]     yes
+ ct describe -l lbtype:$labelname                               yes
+ ct describe -l trtype:$triggername                             yes
+ ct describe -l replica:${replTag}@$vobTag                      yes
+ ct describe [-l] { $element | <wildcard> }                     yes
+
+ ct dump [-l] $element                                          no
+ ct hostinfo -l                                                 no
+ ct lshistory [-l] { $element | <wildcard> }                    no
+ ct lsreplica -l [ -invob $vobtag ]                             yes
+
+ ct lstype -l [-local] -kind brtype [ -invob $vobtag ]          yes
+ ct lstype -l [-local] -kind lbtype [ -invob $vobtag ]          yes
+ ct lstype -l [-local] -kind trtype [ -invob $vobtag ]          yes
+ ct lstype -l brtype:${branchname}@${vobtag}                    yes
+ ct lstype -l lbtype:${labelname}@${vobtag}                     yes
+ ct lstype -l trtype:${triggername}@${vobtag}                   yes
+
+ ct lsview -l [ $viewtag ]                                      yes
+ ct lsview -l [ -host $hostname ]                               yes
+
+ ct lsvob  -l $vobTag                                           no
+ ct lsvtree [-s] [-nrecurse] [-all] [-obs] [-merge] $element    no
+ ct -version                                                    yes
+ ct -verall                                                     yes
+
+Output from all other commands is placed into a default "List" object.
+This is useful for "-short" listings that result in lists of items.
+See the first code snippet in EXAMPLES section, below. 
+                                                              works w/
+ cleartool commands (examples: returns a "List" object)      multitool?
+ ----------------------------------------------------------  ----------
+ ct describe -s brtype:$branchname                              yes
+ ct describe -s replica:${replTag}@$vobTag                      yes
+ ct lsview -s                                                   no
+
+For commands that do not generate any text output, the result is 
+ignored and no object is created.
+
+
+The object METHODS for each resulting object are defined in the base
+class "ClearCase::Vob::InfoBase" while each of the various ATTRIBUTES 
+are created by the particular subclasses during parsing. While parsing 
+the resulting output, any unknown/unrecognized text is placed in an 
+attribute and the text is available via the "getUnparsed" method.
+
+Note well: each command that is run will create a separate instance of
+the cleartool command parser. To improve efficiency when many commands
+will be run, use one of the following classes as they are designed to
+create a single persistent command parser. They also provide hooks to 
+facilitate using these parser classes, or another parser if desired.
+
+    ClearCase::Proc::ClearTool
+    MultiSite::Proc::MultiTool
+
+These last two classes are not discussed here. See the inline docco
+for usage and other information.
+
+________________________________________________________________________
+
+EXAMPLES
+
+The following examples provide a brief overview of the parser.
+
+
+Retrieve VOB name and VOB host for all replicas
+
+    use lib "/opt/tools/cia/lib";
+    use ClearCase::Vob::Info;
+
+    $ClearTool = new ClearCase::Vob::Info;
+
+    $vobObj = $ClearTool->run( "lsvob -s" );
+
+    foreach $vobTag ($vobObj->getList) {
+
+	$famObj = $ClearTool->run( "lsreplica -l -invob $vobTag" );
+
+	foreach $replName ($famObj->getList) {
+
+	    $replObj = $familyObj->get($replName);
+
+	    $vobName = $replObj->get('name');
+	    $vobHost = $replObj->get('host');
+	}
+    }
+
+In the above example, the "$vobObj" will contain a simple
+list of "$vobTag" names that were retrieved. The "$famObj" 
+object, however, will contain a unique "$replObj" object 
+for each named member of the VOB family.
+
+
+Collect Information About a Branch
+
+    chdir("/ux/scm/cia") or die "Can't cd to '/ux/scm/cia'";
+
+    $brtypeObj = $ClearTool->run( "describe -l brtype:i80" );
+
+    $brName  = $brtypeObj->get('name');
+    $brOwner = $brtypeObj->get('owner');
+
+
+Parse Existing Data
+
+Any arbitrary text can be fed into the parser. Using the
+"parse" method does not invoke the "cleartool" command.
+The argument can be an array or a string.
+
+    @fileData = <$fileHandle>;
+    $dataObj = $ClearTool->parse( @fileData );
+
+    $text = getSomeText();
+    $dataObj = $ClearTool->parse( $text );
+
+
+Compare Parsed Data
+
+Using Perl's "overload" pragma, it is easy to design objects 
+that can compare themselves to others of the same Class.
+
+    $dataObjA = $ClearTool->parse( @fileData );
+    $dataObjB = $ClearTool->run( "catcs -tag $viewName" );
+
+    # 0=Equiv,  1=Different contents,  -1=Object incompatibility
+    #
+    $diff = $dataObjA cmp $dataObjB;
+
+    if ($diff < 0) {
+	print "objA and objB are INCOMPATIBLE\n";
+    } elsif ($diff == 0) {
+	print "objA and objB are EQUIVALENT\n";
+    } else {  # > 0
+	print "objA and objB are DIFFERENT\n";
+    }
+ 
+There is a default (fallback) object type that is created
+when the output is not recognized. Since the output from
+"catcs -tag $viewName" doesn't need special parsing here, the
+above example works without building a new parser subclass.
+
+Also, since there may be times when it is not appropriate to
+compare all the attributes (e.g., when only some attributes 
+will differ). This case is provided for as follows. The first
+example, below, is equivalent to the above "cmp" example. The
+second example only compares the listed attributes.
+
+    $diff = $dataObjA->compare($dataObjB);
+
+    $diff = $dataObjA->compare($dataObjB,"","",@attributeList);
+ 
+    print $dataObjA->compare( $dataObjB )
+      : " objA and objB are DIFFERENT\n"
+      ? " objA and objB are EQUIVALENT\n";
+
+The following syntax will work as well.
+
+    $diff = $dataObjA->compare($dataObjA, $dataObjB);
+
+
+View Object Contents
+
+Each object has a "dump" method. This allows easy access to 
+the object's current state during testing/debugging. The 
+"expand" argument will expand array or hash references. An 
+argument of "object" will include sub-objects if they have
+a "dump" method defined.
+
+    print $replObj->dump;
+
+    print $replObj->dump("expand");
+
+    print $replObj->dump("objects");
+
+This example dumps the definition of a particular VOB
+replica (created in the first example, above). The result is:
+
+DEBUG: (ClearCase::Vob::Info::InfoBase::dump)
+  self='MultiSite::Vob::Info::Replica=HASH(0x400f65e8)'
+CALLER main at line 71 (./concept1.pl)
+ ERROR =
+ STATUS = 0
+ _createStamp = 907614597
+ count = 1
+ createDate = 10/05/98 12:09:57
+ creatorName = ClearCase VOB admin (vobadm.uxdev@msbk)
+ replicaComment = Create replica cllvob12.cup.hp.com:ux_SCM_Control.cll
+ replicaGroup = uxdev
+ replicaHost = adlvob05.cup.hp.com
+ replicaName = ux_SCM_Control.adl
+ replicaOwner = vobadm
+ replicaType = unfiltered
+_________________________
+
+The first three lines show where the dump occurred, and
+the rest show the current "attributes" in the object. 
+
+Note that, when a date string is part of the ct/mt output,
+it gets converted to a "cleaner" format. And, since during
+date reformatting the Unix "epoch" date is available, it's
+added to the object as a "dateStamp" attribute.
+
+
+The "run" Method
+
+The "$ClearTool->run" method allows for a couple of 
+additional parameters.
+
+    $ClearTool->run( $subcmd, $matchCriteria, $flag );
+
+For simple list output (e.g., "lsview -s -host `hostname`" 
+or "ct lsvob -s") adding "$matchCriteria" will return a
+subset of the result. Any Perl regex pattern will work.
+
+If a non-null "$flag" is added, raw output is returned
+as an array, and no object is created. This for times 
+when you still want to parse the result "by hand."
+
+
+The Parser Classes
+
+There are several "Info" parsers. It is not clear if the
+corresponding subclasses should be merged into a single 
+set or not (e.g., "ClearCase::Info") ... stay tuned.
+
+    use lib "/opt/tools/cia/lib";
+
+    use ClearCase::Vob::Info;
+    use ClearCase::View::Info;
+    use MultiSite::Vob::Info;
+
+    $ClearTool = "ClearCase::Vob::Info";
+    $ClearView = "ClearCase::View::Info";
+    $MultiTool = "MultiSite::Vob::Info";
+
+________________________________________________________________________

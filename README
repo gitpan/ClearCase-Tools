@@ -1,0 +1,59 @@
+ClearCase-Tools version 0.01
+============================
+
+ClearCase-Tools is a collection of Perl Tools for ClearCase Administrators.
+These meta-tools have evolved over the years to simplify the normal, not-
+so-simple tasks that most ClearCase Admins, at some point, need to address.
+
+As data base query tools, the ClearCase 'cleartool' and 'multitool'
+commands leave a lot to be desired. (Imagine how successful Oracle
+would be today if the only interface to their data base was similar
+to these two ClearCase commands!)
+
+The main use of these tools is parsing all of the output that spewes
+from the various cleartool and multitool subcommands, and package it up
+in an object that contains all of the various bits and pieces.
+
+Another class is a simple OO wrapper for the ClearCase 'albd_list'
+command. It is used to query a running ClearCase 'albd' daemon,
+parse the output, and package it up in easily accessable pieces.
+Note that only information on Vob and View servers is currently
+parsed by this class.
+
+Other classes include parsers for the ClearCase system's
+'shipping.conf' configuration file and 'shipping order' files,
+a class to convert a 'View extended' path ("@@" path) into a
+canonical file system path by stripping out all branches and
+versions, and a class to look for 'Out of View Space' errors
+in a system's 'syslog' log file.
+
+
+The tools described here have been used successfully with various 
+ClearCase releases from 4.2 through 6.0, with the exception of 
+version 5.x.
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+   PTools
+   PTools-SDF
+
+COPYRIGHT AND LICENCE
+
+Copyright (C) 2002-2004 by Hewlett-Packard
+
+This library is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself, either Perl version 5.8.8 or,
+at your option, any later version of Perl 5 you may have available.
+
+
